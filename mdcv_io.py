@@ -4,11 +4,13 @@ import numpy as _np
 from joblib import Parallel, delayed
 from tqdm import tqdm_notebook as _tqdm
 import numpy as _np
+print("reloaded!!!!")
 def load_data(verbose=0, **kwargs_hd5_2_archives):
    # _tqdm = lambda x : x
-    files = {"A": "data/neighborhoods.A.B2AR.zip.hdf5",
-             "B": "data/neighborhoods.B.B2AR.zip.hdf5",
-             "C": "data/neighborhoods.C.B2AR.zip.hdf5"
+    files = {
+             #"A": "data/neighborhoods.A.B2AR.zip.hdf5",
+             "B": "data/neighborhoods.B.B2AR.zip.stride.5.hdf5",
+             #"C": "data/neighborhoods.C.B2AR.zip.hdf5"
              }
 
     Ns = Parallel(n_jobs=1, verbose=verbose)(delayed(hd5_2_dict_of_CGdicts)(ff,
@@ -66,7 +68,7 @@ def hd5_2_dict_of_CGdicts(obj, stride=1, restrict_to_residxs=None, decompress_he
                 for iarch in neighborhood_archs:
                     iarch["time_traces.time_trajs"] = ref_t
                     if decompress_here:
-                        decompress_arch(iarch)
+                        decompress_serialized_CP(iarch)
             archive["name"] = [None if CG["name"][()].decode().lower()=="none" else CG["name"][()].decode()][0]
             archive["interface_residxs"]=CG["interface_residxs"][()]
             output_dict[int(key)] = archive
