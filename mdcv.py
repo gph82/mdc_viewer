@@ -14,7 +14,9 @@ import mdtraj as _md
 
 def show():
     top = _md.load("data/top.pdb.gz").top
-    data = mdcv_io.load_data(verbose=0, decompress_here=False)
+    data = mdcv_io.load_data(verbose=0,
+                             #decompress_here=False
+                             )
     screen3(data,
              top,
              initial_value="R131,GDP"
