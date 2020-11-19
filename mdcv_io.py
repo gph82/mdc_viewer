@@ -6,7 +6,7 @@ from tqdm import tqdm_notebook as _tqdm
 import numpy as _np
 def load_data(
         files={
-            #"A": "data/neighborhoods.A.B2AR.zip.stride.10.hdf5",
+            "A": "data/neighborhoods.A.B2AR.zip.stride.10.hdf5",
             "B": "data/neighborhoods.B.B2AR.zip.stride.10.hdf5",
             "C": "data/neighborhoods.C.B2AR.zip.stride.10.hdf5"
         },

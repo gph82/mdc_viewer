@@ -1,1 +1,1 @@
--e git://github.com/gph82/mdciao.git
+-e git://github.com/gph82/mdciao.git#egg=mdciao
