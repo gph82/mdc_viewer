@@ -39,7 +39,7 @@ def hd5_2_dict_of_CGdicts(obj, stride=1, restrict_to_residxs=None, decompress_he
     """
     import h5py
     if _path.exists(obj):
-        data = h5py.File(obj)
+        data = h5py.File(obj,"r")
     else:
         data = obj
 
@@ -154,7 +154,7 @@ def dict_of_CGs_2_hdf5(f, idict, compress=False,exclude=None, stride=1):
     if exclude is None:
         exclude=[]
     if compress:
-        ref_t  = common_time_array_of_CG_dicts(idict)
+        ref_t  = common_time_array_of_CG_dicts(idict)[::stride]
         if ref_t is not None:
             exclude=["time_traces.time_trajs"]
 
