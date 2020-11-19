@@ -1,1 +1,2 @@
 -e git://github.com/gph82/mdciao.git#egg=mdciao
+h5py
