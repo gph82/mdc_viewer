@@ -4,14 +4,16 @@ import numpy as _np
 from joblib import Parallel, delayed
 from tqdm import tqdm_notebook as _tqdm
 import numpy as _np
-print("reloaded!!!!")
-def load_data(verbose=0, **kwargs_hd5_2_archives):
+def load_data(
+        files={
+            #"A": "data/neighborhoods.A.B2AR.zip.stride.10.hdf5",
+            "B": "data/neighborhoods.B.B2AR.zip.stride.10.hdf5",
+            "C": "data/neighborhoods.C.B2AR.zip.stride.10.hdf5"
+        },
+        verbose=0,
+              **kwargs_hd5_2_archives):
    # _tqdm = lambda x : x
-    files = {
-             #"A": "data/neighborhoods.A.B2AR.zip.hdf5",
-             "B": "data/neighborhoods.B.B2AR.zip.stride.5.hdf5",
-             #"C": "data/neighborhoods.C.B2AR.zip.hdf5"
-             }
+
 
     Ns = Parallel(n_jobs=1, verbose=verbose)(delayed(hd5_2_dict_of_CGdicts)(ff,
                                                                         **kwargs_hd5_2_archives
@@ -154,16 +156,16 @@ def dict_of_CGs_2_hdf5(f, idict, compress=False,exclude=None, stride=1):
     if exclude is None:
         exclude=[]
     if compress:
-        ref_t  = common_time_array_of_CG_dicts(idict)[::stride]
+        ref_t  = common_time_array_of_CG_dicts(idict)
         if ref_t is not None:
+            ref_t = [t[::stride] for t in ref_t]
             exclude=["time_traces.time_trajs"]
 
     for key, cg in idict.items():
-        print("outest_loop",key, cg)
         try:
             g = f.create_group(str(key))
             iarch = cg.archive(exclude=exclude)
-            print(iarch.keys())
+            #print(iarch.keys())
             # print(key, len(iarch["serialized_CPs"]))
             for ii, cp in enumerate(iarch["serialized_CPs"]):
                 h = g.create_group(str(ii))
