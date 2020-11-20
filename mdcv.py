@@ -13,7 +13,7 @@ import io
 import mdcv_io
 from collections import defaultdict as _defdict
 import mdtraj as _md
-
+import functs
 def show():
     top = _md.load("data/top.pdb.gz").top
     data = mdcv_io.load_data(verbose=0,
@@ -63,7 +63,7 @@ def fragmentation_Hbox(top):
 def figure_options():
 
     title = ipywidgets.Button(description="Figure Options",
-                              layout={"width":"100%"})
+                              layout={"width":"99%"})
     zoom = ipywidgets.FloatSlider(
         value=100,
         min=50,
@@ -77,7 +77,7 @@ def figure_options():
         readout_format='.1f',
     )
 
-    return _VBox([title,zoom])
+    return _VBox([title], layout={"width":"99%"})
 
 def residue_selection(top, fragments=None, initial_value="R131,GDP*,L393-L394"):
     r"""
@@ -102,7 +102,7 @@ def residue_selection(top, fragments=None, initial_value="R131,GDP*,L393-L394"):
                                     layout={"width":"500px"}
                                     )
     residue_output = ipywidgets.Textarea(placeholder="'unpacked' list of target residues will appear here",
-                                         layout={"width":"100%"})
+                                         layout={"width":"99%"})
 
     residue_list = ipywidgets.Select(
         options=[str(rr) for rr in top.residues],
@@ -119,7 +119,6 @@ def residue_selection(top, fragments=None, initial_value="R131,GDP*,L393-L394"):
 
     def add_list_residue():
         res = [ii for ii in residue_input.value.split(",") if len(ii)>0]
-        print(res)
         if residue_list.value not in res:
             residue_input.value = ",".join(res+[residue_list.value])
 
@@ -162,7 +161,7 @@ def residue_selection(top, fragments=None, initial_value="R131,GDP*,L393-L394"):
 
     evaluate_residues.on_click(lambda _ : eval_residue_selection())
     box = ipywidgets.VBox([ipywidgets.HBox([residue_input, residue_list, pick_list, evaluate_residues, clear],
-                                      layout={"width": "100%"}),
+                                      layout={"width": "99%"}),
                          residue_output])
     widgets={"residue_input":residue_input,
              "preview":evaluate_residues,
@@ -171,7 +170,7 @@ def residue_selection(top, fragments=None, initial_value="R131,GDP*,L393-L394"):
 
 def AA_Label_Options():
     desc = ipywidgets.Button(description="AA-Label-Options:",
-                             layout={"width": "100%"},
+                             layout={"width": "99%"},
                              )
 
     """
@@ -181,7 +180,10 @@ def AA_Label_Options():
                                               layout={"width": "50%"})
     """
     tgl_hide_anchor = ipywidgets.ToggleButton(value=True,
-                                              description="use anchor AA",
+                                              tooltip="The AA shared by all contact pairs "
+                                                      "is called 'anchor'. You can remove "
+                                                      "it from the contact label.",
+                                              description="toggle 'anchor'",
                                               icon="check",
                                               layout={"width": "50%"})
 
@@ -214,6 +216,10 @@ def AA_Label_Options():
 def Bar_Options():
     tgl_freqs_above = ipywidgets.ToggleButton(value=True,
                                               description="Don't show freqs >=",
+                                              tooltip="The contacts with freqs >= this number "
+                                                      "for all datasets will not be plotted.\n"
+                                                      "Their total sum will still appear "
+                                                      "in the legend as +x.ya (a='above threshold')",
                                               style={"description_width": "max-content"},
                                               layout={"width": "70%"},
                                               icon="check"
@@ -222,18 +228,23 @@ def Bar_Options():
                                       layout={"width": "30%"},
                                       step=.05)
     tgl_freqs_below = ipywidgets.ToggleButton(value=True,
+                                              tooltip="The contacts with freqs <= this number "
+                                                      "for all datasets will not be plotted.\n"
+                                                      "Their total sum will still appear "
+                                                      "in the legend as +x.yb (b='below threshold')",
                                               description="Don't show freqs <=",
                                               layout={"width": "70%"},
                                               icon="check"
                                               )
     thrs_below = ipywidgets.FloatText(0.2,
+                                      step=.05,
                                       style={"description_width": "max-content"},
                                       layout={"width": "30%"})
 
 
     identity = _VBox([
         ipywidgets.Button(description="Bar-options:",
-                          layout={"width": "100%"}),
+                          layout={"width": "99%"}),
         _HBox([tgl_freqs_above, thrs_above]),
         _HBox([tgl_freqs_below, thrs_below]),
         # _HBox(colors)
@@ -250,7 +261,7 @@ def Bar_Options():
 
     return identity, argmap
 
-def args_box():
+def general_options(horizontal=True):
 
     AA_labels, argmap1 = AA_Label_Options()
 
@@ -270,16 +281,16 @@ def args_box():
         tgl.observe(lambda traits : change_icon(traits),names="value")
 
 
-
-    return _HBox([Bars,AA_labels],
-                 layout={"width": "100%"}
+    if horizontal:
+        funct=_HBox
+    else:
+        funct=_VBox
+    return funct([Bars,AA_labels],
+                 layout={"width": "99%"}
                  ), argmap1
 
-def cutoff_selection_HBox():
-    clear_button = widgets.Button(description="clear neighborhoods", button_style="danger",
-                                  layout={"width": "auto"})
-
-    FreqSlider = widgets.FloatSlider(
+def freq_slider():
+    return ipywidgets.FloatSlider(
         value=3.5,
         min=0,
         max=5,
@@ -290,15 +301,30 @@ def cutoff_selection_HBox():
         continuous_update=False,
     )
 
+
+def cutoff_selection_HBox():
+    clear_button = widgets.Button(description="clear neighborhoods", button_style="danger",
+                                  layout={"width": "auto"})
+
+    FreqSlider = freq_slider()
+
     green_button = widgets.Button(description="show neighborhoods", button_style="success",
                                 layout={"width": "auto"}
                                 )
 
-    box = widgets.HBox([FreqSlider, green_button, clear_button])
+
+    collap_button = widgets.ToggleButton(description="collapse neighborhoods", button_style="info",
+                                layout={"width": "auto"}
+                                )
+
+    box = widgets.HBox([FreqSlider, green_button, clear_button,
+                        #collap_button
+                        ])
     wdgs = {
         "FreqSlider":FreqSlider,
         "green_button":green_button,
-        "clear_button":clear_button
+        "clear_button":clear_button,
+        "collapse_button":collap_button
     }
     return box, wdgs
 
@@ -322,12 +348,14 @@ def color_pickers(centers_colors=None):
 
     return cps
 
-def screen3(indict,top, individual_controls=False, **kwargs):
+def screen3(indict,top, individual_controls=False,
+            start=False,
+            **kwargs):
 
     residue_selection_box, res_idxs, res_wdg = residue_selection(top,**kwargs)
 
     residue_selection_acc = ipywidgets.Accordion([residue_selection_box],
-                                                 layout={"width": "100%"})
+                                                 layout={"width": "99%"})
     residue_selection_acc.set_title(0, "Residue Selection")
 
     cutoff_selection_box, co_wdgs = cutoff_selection_HBox()
@@ -335,41 +363,55 @@ def screen3(indict,top, individual_controls=False, **kwargs):
 
     Errors =  widgets.Output(layout={'border': '1px solid black'})
 
-    img_box = widgets.VBox([])
+    img_box = widgets.VBox([],
+                           layout={"width":"99%"})
 
     CGs = _defdict(dict)
 
     output_acc = widgets.Accordion([widgets.VBox([img_box,Errors])],
-                                   layout={"width":"100%"})
+                                   layout={"width":"99%"})
     output_acc.set_title(0, "Output")
 
-    options_wdg, argmap = args_box()
-    accordion = ipywidgets.Accordion(
+    options_wdg, main_argmap = general_options()
+    tgl_per_figure = ipywidgets.ToggleButton(description={True:"on",
+                                                          False:"off"}[individual_controls],
+                                             value=individual_controls,
+                                             icon={True:"check",
+                                                   False:""}[individual_controls])
+
+    options_wdg = _HBox(list(options_wdg.children)+[_VBox([ipywidgets.Button(description="Per-Figure-Options"),
+                                                           tgl_per_figure,
+                                                           ])])
+    main_argmap["frequency"]=FreqSlider
+    gen_opts_acc = ipywidgets.Accordion(
         [options_wdg],
-        layout={"width": "100%"},
+        layout={"width": "99%"},
         selected_index=None)
 
-    accordion.set_title(0, "General Options")
-    print("AAA",res_idxs)
+    gen_opts_acc.set_title(0, "General Options")
 
     out_VBox = widgets.VBox([
         residue_selection_acc,
-        accordion,
+        gen_opts_acc,
         cutoff_selection_box,
        output_acc,
-    ])
+    ],
+    layout={"width":"95%"}
+    )
 
     display(out_VBox)
 
 
     _plt.ioff()
-    print(res_idxs)
     first_run={"res":False}
-    def run(res_idxs,argmap):
 
+    per_fig_controls={}
+    image_widgets = {}
+    def run(res_idxs,argmap, individual_controls):
 
         _plt.close("all")
-        imgs = []
+        plot_widgets = []
+        shown_CGs=[]
         for rr in res_idxs["res"]:
             rr = int(rr)
             Errors.clear_output()
@@ -385,84 +427,87 @@ def screen3(indict,top, individual_controls=False, **kwargs):
                         print("%s was found in the topology but not in the indict"%top.residue(rr))
             iCG: mdciao.contacts.ContactGroup
             if len(CGs[rr])>0:
+                shown_CGs.append(CGs[rr])
                 b = io.StringIO()
                 with redirect_stdout(b):
-                    ifig = lambda_compare_neighborhoods(CGs[rr],argmap)
+                    ifig = functs.lambda_compare_neighborhoods(CGs[rr],argmap)
                 b.close()
                 ifig: _plt.Figure
                 width_px, height_px = [_np.round(ii / 1.25) for ii in ifig.get_size_inches() * ifig.get_dpi()]
                 b = io.BytesIO()
                 ifig.savefig(b, format="png", bbox_inches="tight")
                 _plt.close()
-                imgs.append(widgets.Image(value=b.getvalue(),
+                img_wdg = widgets.Image(value=b.getvalue(),
                                           width=width_px,
-                                          height=height_px))
+                                          height=height_px)
+
 
                 first_run["res"]=True
 
-        children=[]
-        for ii in imgs:
-            if individual_controls:
-                FOs = figure_options()
-                BOs, __ = Bar_Options()
-                BOs.layout={"width":"90%"}
-                AAs, __ = AA_Label_Options()
-                AAs.layout={"width":"90%"}
-                children.append(_VBox([_HBox([ii,
-                                              _VBox([FOs, BOs,AAs]),
-                                              ]),
-                                       ipywidgets.Label(value="Separator"),
-                                       ]
-                                      ))
+
+                fs = freq_slider()
+                fs.description = "cutoff"
+
+                indv_options_box, indv_argmap = general_options(horizontal=False)
+                indv_argmap["frequency"]=fs
+
+                indv_options_box = _VBox([fs]+list(indv_options_box.children))
+                [setattr(child,"layout",{"width":"100%"}) for child in indv_options_box.children]
+
+                indv_options_box.layout = {"width":"31%",
+                              #'border': '1px solid black'
+                                           }
+
+                [setattr(val, "_res_idx", rr) for key, val in indv_argmap.items() if key!="kwargs"]
+                [setattr(val, "_res_idx", rr) for key, val in indv_argmap["kwargs"].items()]
+                per_fig_controls[rr] = indv_argmap
+                image_widgets[rr] = img_wdg
+            if individual_controls.value:
+                acc_wdig = ipywidgets.Accordion([_HBox([_HBox([img_wdg], layout={"width": "68%"}),
+                                                        indv_options_box],
+                                                       layout={"width": "99%"}),
+                                                 ])
+                acc_wdig.set_title(0, str(top.residue(rr)))
+                plot_widgets.append(acc_wdig)
             else:
-                children.append(ii)
+                plot_widgets.append(img_wdg)
 
-        img_box.children=children
+            for rr, indv_argmap in per_fig_controls.items():
+                indv_argmap["frequency"].observe(lambda change: update_lambda(change), names="value")
+                for wdg in list(indv_argmap["kwargs"].values()) + [val for key, val in indv_argmap.items() if
+                                                                   key != "kwargs"]:
+                    wdg.observe(lambda change: update_lambda(change), names="value")
 
-                            
+            img_box.children = plot_widgets
 
 
-    def lambda_compare_neighborhoods(CGs,argmap):
-        anchor_str = mdciao.utils.residue_and_atom.shorten_AA(
-            str(list(CGs.values())[0]._contacts[0].residues.anchor_residue),
-            substitute_fail="long",
-            keep_index=True)
-        if argmap["kwargs"]["anchor"].value:
-            anchor=anchor_str
-        else:
-            anchor=None
-        if argmap["tgl_consensus"].value:
-            defrag=" "
-        else:
-            defrag="@"
-        return mdciao.plots.compare_groups_of_contacts(CGs,
-                                                ctc_cutoff_Ang=FreqSlider.value,
-                                                anchor=anchor,
-                                                remove_identities=argmap["kwargs"]["remove_identities"].value,
-                                                identity_cutoff=argmap["kwargs"]["identity_cutoff"].value,
-                                                assign_w_color=argmap["kwargs"]["assign_w_color"].value,
-                                                lower_cutoff_val=argmap["kwargs"]["lower_cutoff_val"].value * int(
-                                                    argmap["tgl_freqs_below"].value),
-                                                fontsize=argmap["kwargs"]["fontsize"].value,
-                                                defrag=defrag,
-                                                       colors=_center_colors,
-                                                       title='%s neighborhood (4 bonded excluded)'% anchor_str
-                                                )[0]
     # First consequence of clicking green : evaluate expression and update res_idx dictionary
     run_button.on_click(lambda _: res_wdg["preview"].click())
     # Now we can generate a lambda
-    print("lambda",res_idxs)
-    run_lambda = lambda out_dict : run(res_idxs, argmap)
+    run_lambda = lambda __ : run(res_idxs, main_argmap, tgl_per_figure)
     # No the lambda gets updated
     run_button.on_click(run_lambda, res_idxs)
 
+    tgl_per_figure.observe(lambda __ : run_lambda(None), names="value")
+    tgl_per_figure.observe(lambda traits: change_icon(traits), names="value")
+    tgl_per_figure.observe(lambda traits: change_on_off(traits), names="value")
 
-    FreqSlider.observe(lambda _: run_lambda(None), names="value")
-    for wdg in list(argmap["kwargs"].values())+[val for key, val in argmap.items() if key!="kwargs"]:
-        wdg.observe( lambda first_run :  run_lambda(None), names="value")
-
-
+    FreqSlider.observe(lambda __ : run_lambda(None), names="value")
+    for wdg in list(main_argmap["kwargs"].values())+[val for key, val in main_argmap.items() if key!="kwargs"]:
+        wdg.observe( lambda __ :  run_lambda(None), names="value")
     clear_button.on_click(lambda _ :   [img.close() for img in img_box.children])
+
+
+
+    if start:
+        run_button.click()
+
+    def update_lambda(change):
+        rr = change["owner"]._res_idx
+        functs.indv_plot(per_fig_controls[rr],CGs[rr], image_widgets[rr])
+        print()
+
+
     return out_VBox
 
 def change_icon(traitlets):
@@ -471,3 +516,10 @@ def change_icon(traitlets):
         traitlets["owner"].icon=""
     else:
         traitlets["owner"].icon="check"
+
+def change_on_off(traitlets):
+    #assert traitlets["owner"].value and traitlets["owner"].icon=="check",traitlets
+    if traitlets["owner"].value:
+        traitlets["owner"].description="on"
+    else:
+        traitlets["owner"].description="off"
