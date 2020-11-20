@@ -22,7 +22,7 @@ def load_data(
                                                                      ))
 
     return {key:val for key, val in zip(files.keys(),Ns)}
-def hd5_2_dict_of_CGdicts(obj, stride=1, restrict_to_residxs=None, decompress_here=True):
+def hd5_2_dict_of_CGdicts(obj, restrict_to_residxs=None, decompress_here=True):
     r"""
 
     Parameters
@@ -41,9 +41,9 @@ def hd5_2_dict_of_CGdicts(obj, stride=1, restrict_to_residxs=None, decompress_he
     """
     import h5py
     if _path.exists(obj):
-        data = h5py.File(obj,"r")
+        h5py_fileobject = h5py.File(obj,"r")
     else:
-        data = obj
+        h5py_fileobject = obj
 
     if restrict_to_residxs is None:
         valid_res = lambda res : True
@@ -51,29 +51,27 @@ def hd5_2_dict_of_CGdicts(obj, stride=1, restrict_to_residxs=None, decompress_he
         valid_res = lambda res : res in restrict_to_residxs
 
     output_dict = {}
-    if "compress" in data.keys() and data["compress"][()]:
-        compress=True
-        ref_t = data["ref_t"][()]
-    for key, CG in data.items():
+    if "compress" in h5py_fileobject.keys() and h5py_fileobject["compress"][()]:
+        needs_decompression=True
+        ref_t = h5py_fileobject["ref_t"][()]
+    for key, CGdict in h5py_fileobject.items():
         # print(key)
         if key.isdigit() and valid_res(int(key)):
-            pass
 
-            archive = {}
+            CG = {}
 
-            neighborhood_archs = list(
-                [{key: val[()] for key, val in dict(val).items()} for key, val in CG.items() if key.isdigit()])
+            serialized_CPs = list(
+                [{key: val[()] for key, val in dict(val).items()} for key, val in CGdict.items() if key.isdigit()])
 
-            neighborhood_archs = [decode_dict_values(idict) for idict in neighborhood_archs]
-            archive["serialized_CPs"] = neighborhood_archs
-            if compress:
-                for iarch in neighborhood_archs:
-                    iarch["time_traces.time_trajs"] = ref_t
+            CG["serialized_CPs"] = [decode_dict_values(idict) for idict in serialized_CPs]
+            if needs_decompression:
+                for sCP in serialized_CPs:
+                    sCP["time_traces.time_trajs"] = ref_t
                     if decompress_here:
-                        decompress_serialized_CP(iarch)
-            archive["name"] = [None if CG["name"][()].decode().lower()=="none" else CG["name"][()].decode()][0]
-            archive["interface_residxs"]=CG["interface_residxs"][()]
-            output_dict[int(key)] = archive
+                        decompress_serialized_CP(sCP)
+            CG["name"] = [None if CGdict["name"][()].decode().lower()=="none" else CGdict["name"][()].decode()][0]
+            CG["interface_residxs"]=CGdict["interface_residxs"][()]
+            output_dict[int(key)] = CG
 
     return output_dict
 
@@ -140,10 +138,10 @@ def CGdict2CG(filename, **cp_kwargs):
 
     cp_args = ["residues.idxs_pair", "time_traces.ctc_trajs", "time_traces.time_trajs"]
 
-    for arch in a["serialized_CPs"]:
+    for sCP in a["serialized_CPs"]:
         try:
-            decompress_arch(arch)
-        except:
+            decompress_serialized_CP(sCP,inplace=True)
+        except AttributeError as e:
             pass
     contact_pairs = [mdciao.contacts.ContactPair(*[cp[arg] for arg in cp_args],
                                  **{key: cp[val] for key, val in mapping.items() if mapping[key] not in cp_args},
@@ -180,7 +178,6 @@ def dict_of_CGs_2_hdf5(f, idict, compress=False,exclude=None, stride=1):
                         val2 = [t for t in [" ".join([str(ff) for ff in _np.round(_np.array(tt)*1000).astype(_np.int32)]) for tt in val2]]
                     if compress and key2 =="time_traces.atom_pair_trajs":
                         val2 = [",".join(["%u %u"%tuple(pair) for pair in tt]) for tt in val2]
-                    #print(key2)
                     h.create_dataset(key2, data=val2)
             g.create_dataset("interface_residxs", data=iarch["interface_residxs"])
             g.create_dataset("name", data=str(iarch["name"]))
