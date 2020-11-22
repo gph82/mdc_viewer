@@ -14,6 +14,7 @@ import mdcv_io
 from collections import defaultdict as _defdict
 import mdtraj as _md
 import functs
+# TODO use interact instead of the argmaps!
 def show():
     top = _md.load("data/top.pdb.gz").top
     data = mdcv_io.load_data(verbose=0,
@@ -313,12 +314,12 @@ def cutoff_selection_HBox():
                                 )
 
 
-    collap_button = widgets.ToggleButton(description="collapse neighborhoods", button_style="info",
+    collap_button = widgets.ToggleButton(description="toggle neighborhoods", button_style="info",
                                 layout={"width": "auto"}
                                 )
 
     box = widgets.HBox([FreqSlider, green_button, clear_button,
-                        #collap_button
+                        collap_button
                         ])
     wdgs = {
         "FreqSlider":FreqSlider,
@@ -358,8 +359,11 @@ def screen3(indict,top, individual_controls=False,
                                                  layout={"width": "99%"})
     residue_selection_acc.set_title(0, "Residue Selection")
 
-    cutoff_selection_box, co_wdgs = cutoff_selection_HBox()
-    FreqSlider, run_button, clear_button = [co_wdgs[key] for key in ["FreqSlider", "green_button", "clear_button"]]
+    runbox, co_wdgs = cutoff_selection_HBox()
+    FreqSlider, run_button, clear_button, collapse_button = [co_wdgs[key] for key in ["FreqSlider",
+                                                                                      "green_button",
+                                                                                      "clear_button",
+                                                                                      "collapse_button"]]
 
     Errors =  widgets.Output(layout={'border': '1px solid black'})
 
@@ -388,12 +392,22 @@ def screen3(indict,top, individual_controls=False,
         layout={"width": "99%"},
         selected_index=None)
 
+    prog = ipywidgets.IntProgress(
+    value=0,
+    min=0,
+    max=10,
+    step=1,
+    description='Loading:',
+    bar_style='', # 'success', 'info', 'warning', 'danger' or ''
+    orientation='horizontal'
+)
     gen_opts_acc.set_title(0, "General Options")
 
     out_VBox = widgets.VBox([
         residue_selection_acc,
         gen_opts_acc,
-        cutoff_selection_box,
+        runbox,
+        #prog,
        output_acc,
     ],
     layout={"width":"95%"}
@@ -403,7 +417,6 @@ def screen3(indict,top, individual_controls=False,
 
 
     _plt.ioff()
-    first_run={"res":False}
 
     per_fig_controls={}
     image_widgets = {}
@@ -411,7 +424,8 @@ def screen3(indict,top, individual_controls=False,
 
         _plt.close("all")
         plot_widgets = []
-        shown_CGs=[]
+        prog.max=len(res_idxs)
+        prog.value=0
         for rr in res_idxs["res"]:
             rr = int(rr)
             Errors.clear_output()
@@ -425,25 +439,9 @@ def screen3(indict,top, individual_controls=False,
                     with Errors:
                         Errors.clear_output(wait="True")
                         print("%s was found in the topology but not in the indict"%top.residue(rr))
-            iCG: mdciao.contacts.ContactGroup
             if len(CGs[rr])>0:
-                shown_CGs.append(CGs[rr])
-                b = io.StringIO()
-                with redirect_stdout(b):
-                    ifig = functs.lambda_compare_neighborhoods(CGs[rr],argmap)
-                b.close()
-                ifig: _plt.Figure
-                width_px, height_px = [_np.round(ii / 1.25) for ii in ifig.get_size_inches() * ifig.get_dpi()]
-                b = io.BytesIO()
-                ifig.savefig(b, format="png", bbox_inches="tight")
-                _plt.close()
-                img_wdg = widgets.Image(value=b.getvalue(),
-                                          width=width_px,
-                                          height=height_px)
 
-
-                first_run["res"]=True
-
+                img_wdg = functs.indv_plot(argmap,CGs[rr])
 
                 fs = freq_slider()
                 fs.description = "cutoff"
@@ -451,7 +449,9 @@ def screen3(indict,top, individual_controls=False,
                 indv_options_box, indv_argmap = general_options(horizontal=False)
                 indv_argmap["frequency"]=fs
 
-                indv_options_box = _VBox([fs]+list(indv_options_box.children))
+                indv_options_box = _VBox([fs]+list(indv_options_box.children)
+                                         #+[FileChooser()]
+                                         )
                 [setattr(child,"layout",{"width":"100%"}) for child in indv_options_box.children]
 
                 indv_options_box.layout = {"width":"31%",
@@ -463,14 +463,19 @@ def screen3(indict,top, individual_controls=False,
                 per_fig_controls[rr] = indv_argmap
                 image_widgets[rr] = img_wdg
             if individual_controls.value:
-                acc_wdig = ipywidgets.Accordion([_HBox([_HBox([img_wdg], layout={"width": "68%"}),
+                acc_children = [_HBox([_HBox([img_wdg], layout={"width": "68%"}),
                                                         indv_options_box],
                                                        layout={"width": "99%"}),
-                                                 ])
-                acc_wdig.set_title(0, str(top.residue(rr)))
-                plot_widgets.append(acc_wdig)
+                                                 ]
             else:
-                plot_widgets.append(img_wdg)
+                acc_children = [_HBox([img_wdg], layout={"width": "68%"})]
+
+            acc_wdig = ipywidgets.Accordion(acc_children)
+
+            acc_wdig.set_title(0, str(top.residue(rr)))
+            plot_widgets.append(acc_wdig)
+
+
 
             for rr, indv_argmap in per_fig_controls.items():
                 indv_argmap["frequency"].observe(lambda change: update_lambda(change), names="value")
@@ -479,7 +484,9 @@ def screen3(indict,top, individual_controls=False,
                     wdg.observe(lambda change: update_lambda(change), names="value")
 
             img_box.children = plot_widgets
-
+            print("updated prog")
+            prog.value+=1
+        prog.bar_style="danger"
 
     # First consequence of clicking green : evaluate expression and update res_idx dictionary
     run_button.on_click(lambda _: res_wdg["preview"].click())
@@ -496,7 +503,9 @@ def screen3(indict,top, individual_controls=False,
     for wdg in list(main_argmap["kwargs"].values())+[val for key, val in main_argmap.items() if key!="kwargs"]:
         wdg.observe( lambda __ :  run_lambda(None), names="value")
     clear_button.on_click(lambda _ :   [img.close() for img in img_box.children])
-
+    collapse_button.observe(lambda _ : [setattr(img,"selected_index",{0:None,
+                                                                      None:0}[img.selected_index]) for img in img_box.children],
+                            names="value")
 
 
     if start:
@@ -504,7 +513,7 @@ def screen3(indict,top, individual_controls=False,
 
     def update_lambda(change):
         rr = change["owner"]._res_idx
-        functs.indv_plot(per_fig_controls[rr],CGs[rr], image_widgets[rr])
+        functs.indv_plot(per_fig_controls[rr],CGs[rr], im_wdg=image_widgets[rr])
         print()
 
 
