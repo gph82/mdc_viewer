@@ -305,9 +305,9 @@ def general_options(horizontal=True):
                  layout={"width": "99%"}
                  ), argmap1
 
-def freq_slider():
+def freq_slider(value=3.5):
     return ipywidgets.FloatSlider(
-        value=3.5,
+        value=value,
         min=0,
         max=5,
         step=0.1,
@@ -475,6 +475,12 @@ def screen3(indict,top, individual_controls=False,
 
                 [setattr(val, "_res_idx", rr) for key, val in indv_argmap.items() if key!="kwargs"]
                 [setattr(val, "_res_idx", rr) for key, val in indv_argmap["kwargs"].items()]
+                for key, val in argmap.items():
+                    if key!="kwargs":
+                        indv_argmap[key].value = val.value
+                    else:
+                        for key2,val2 in val.items():
+                            indv_argmap["kwargs"][key2].value=val2.value
                 per_fig_controls[rr] = indv_argmap
                 image_widgets[rr] = img_wdg
             if individual_controls.value:
@@ -499,7 +505,6 @@ def screen3(indict,top, individual_controls=False,
                     wdg.observe(lambda change: update_lambda(change), names="value")
 
             img_box.children = plot_widgets
-            print("updated prog")
             prog.value+=1
         prog.bar_style="danger"
 
@@ -510,9 +515,15 @@ def screen3(indict,top, individual_controls=False,
     # No the lambda gets updated
     run_button.on_click(run_lambda, res_idxs)
 
-    tgl_per_figure.observe(lambda __ : run_lambda(None), names="value")
+    def tgl_per_figure_effect(traits):
+        tgl = traits["owner"]
+        print(tgl)
+        run_lambda(None)
+
     tgl_per_figure.observe(lambda traits: change_icon(traits), names="value")
     tgl_per_figure.observe(lambda traits: change_on_off(traits), names="value")
+    tgl_per_figure.observe(lambda traits : tgl_per_figure_effect(traits), names="value")
+
 
     FreqSlider.observe(lambda __ : run_lambda(None), names="value")
     for wdg in list(main_argmap["kwargs"].values())+[val for key, val in main_argmap.items() if key!="kwargs"]:

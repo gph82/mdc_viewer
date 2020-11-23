@@ -1,5 +1,13 @@
-# mdc_viewer
-Tools to View mdciao's results
+* This is a tool to view and communicate mdciao's results
 
-.. image:: https://mybinder.org/badge_logo.svg
- :target: https://mybinder.org/v2/gh/gph82/mdc_viewer/HEAD?filepath=Show_Residue_Neighborhoods.ipynb
+* The results of the project have been pre-computed already
+
+* No installation needed, simply click here |binder badge| (and wait a moment for the analysis notebook to load)
+
+* This is highly experimental
+
+
+
+.. |binder badge| image::
+   https://mybinder.org/badge_logo.svg
+   :target: https://mybinder.org/v2/gh/gph82/mdc_viewer/HEAD?filepath=Show_Residue_Neighborhoods.ipynb
