@@ -128,6 +128,7 @@ def residue_selection(top, fragments=None, initial_value="R131,GDP*,L393-L394"):
 
 
     evaluate_residues = ipywidgets.Button(description="preview",
+                                          tooltip="Evaluate your residue selection before computing the neighborhoods",
                                        layout={"width":"auto"},
                                        button_style="info")
 
@@ -189,10 +190,19 @@ def AA_Label_Options():
                                               layout={"width": "50%"})
 
     tgl_consensus_labs = ipywidgets.ToggleButton(value=True,
+                                                 tooltip="toggle consensus labels",
                                                  description="consensus labels",
                                                  icon="check",
                                                  layout={"width": "50%"})
     tgl_color_hint = ipywidgets.ToggleButton(value=False,
+                                             tooltip="Use colors to hint if a single dataset is either "
+                                                     "entirely missing or the only one present."
+                                                     "E.g., if D30-K40 is the only"
+                                                     " missing in dataset A (colored in purple), then you "
+                                                     "will see the label '-D30-K40' in purple. Conversely, "
+                                                     "if it is the only one present, you will see '+D30-K40"
+                                                     " in puruple. Notice the signs '-' and '+' denoting "
+                                                     "absence or presence.",
                                              description="color hint",
                                              layout={"width": "50%"})
     fontsize = ipywidgets.IntText(value=16, description="fontsize",
@@ -216,11 +226,14 @@ def AA_Label_Options():
 
 def Bar_Options():
     tgl_freqs_above = ipywidgets.ToggleButton(value=True,
-                                              description="Don't show freqs >=",
-                                              tooltip="The contacts with freqs >= this number "
-                                                      "for all datasets will not be plotted.\n"
+                                              description="hide freqs >=",
+                                              tooltip="The pairs where all datasets show freqs >= this number "
+                                                      "will not be plotted.\n"
                                                       "Their total sum will still appear "
-                                                      "in the legend as +x.ya (a='above threshold')",
+                                                      "in the legend as 'a' (a='above threshold').\n"
+                                                      "For example, if the first 'n' contacts are always"
+                                                      " formed you can hide them to"
+                                                      " unclutter the plot and focus on the differences.",
                                               style={"description_width": "max-content"},
                                               layout={"width": "70%"},
                                               icon="check"
@@ -229,11 +242,13 @@ def Bar_Options():
                                       layout={"width": "30%"},
                                       step=.05)
     tgl_freqs_below = ipywidgets.ToggleButton(value=True,
-                                              tooltip="The contacts with freqs <= this number "
-                                                      "for all datasets will not be plotted.\n"
+                                              tooltip="The pairs where all datasets show freqs <= this number "
+                                                      "will not be plotted.\n"
                                                       "Their total sum will still appear "
-                                                      "in the legend as +x.yb (b='below threshold')",
-                                              description="Don't show freqs <=",
+                                                      "in the legend as 'b' (b='below threshold').\n"
+                                                      "This unclutters the plot by truncating low frequencies.",
+
+                                              description="hide freqs <=",
                                               layout={"width": "70%"},
                                               icon="check"
                                               )
@@ -244,7 +259,7 @@ def Bar_Options():
 
 
     identity = _VBox([
-        ipywidgets.Button(description="Bar-options:",
+        ipywidgets.Button(description="Contact Frequency Options:",
                           layout={"width": "99%"}),
         _HBox([tgl_freqs_above, thrs_above]),
         _HBox([tgl_freqs_below, thrs_below]),
