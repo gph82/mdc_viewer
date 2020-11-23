@@ -2,7 +2,9 @@
 
 * The results of the project have been pre-computed already
 
-* No installation needed, simply click here |binder badge| (and wait a moment for the analysis notebook to load)
+* No installation needed, simply click here |binder badge| and wait a moment for the analysis notebook to load.
+
+* While it loads you can, read the information on the non-interactive version.
 
 * This is highly experimental
 
