@@ -5,10 +5,13 @@ import matplotlib.pyplot as _plt
 from mdciao.utils.residue_and_atom import shorten_AA as _shortenAA
 from mdciao.plots import compare_groups_of_contacts as _compare_groups_of_contacts
 import ipywidgets
-def indv_plot(argmap, iCG, im_wdg=None):
+def indv_plot(argmap, iCG, im_wdg=None, capture=True):
     if len(iCG) > 0:
         b = io.StringIO()
-        with redirect_stdout(b):
+        if capture:
+            with redirect_stdout(b):
+                ifig = lambda_compare_neighborhoods(iCG, argmap)
+        else:
             ifig = lambda_compare_neighborhoods(iCG, argmap)
         b.close()
         ifig: _plt.Figure
@@ -30,14 +33,18 @@ def lambda_compare_neighborhoods(CGs,argmap):
     anchor_str = _shortenAA(str(list(CGs.values())[0]._contacts[0].residues.anchor_residue),
                             substitute_fail="long",
                             keep_index=True)
+    anchor_str = list(CGs.values())[0].anchor_res_and_fragment_str_short
     if argmap["kwargs"]["anchor"].value:
         anchor=anchor_str
     else:
         anchor=None
     if argmap["tgl_consensus"].value:
         defrag=" "
+
     else:
         defrag="@"
+        if anchor is not None:
+            anchor_str = list(CGs.values())[0]._contacts[0]._attribute_neighborhood_names.anchor_residue_short
     return _compare_groups_of_contacts(CGs,
                                        ctc_cutoff_Ang=float(argmap["frequency"].value.split(" ")[0]),
                                        anchor=anchor,
@@ -49,7 +56,7 @@ def lambda_compare_neighborhoods(CGs,argmap):
                                        fontsize=argmap["kwargs"]["fontsize"].value,
                                        defrag=defrag,
                                        colors=_center_colors,
-                                       title='%s' % anchor_str
+                                       title='%s ' % str(anchor_str.replace("@","^"))
                                        )[0]
 
 
