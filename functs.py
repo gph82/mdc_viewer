@@ -39,7 +39,7 @@ def lambda_compare_neighborhoods(CGs,argmap):
     else:
         defrag="@"
     return _compare_groups_of_contacts(CGs,
-                                       ctc_cutoff_Ang=argmap["frequency"].value,
+                                       ctc_cutoff_Ang=float(argmap["frequency"].value.split(" ")[0]),
                                        anchor=anchor,
                                        remove_identities=argmap["kwargs"]["remove_identities"].value,
                                        identity_cutoff=argmap["kwargs"]["identity_cutoff"].value,

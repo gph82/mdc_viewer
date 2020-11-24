@@ -40,7 +40,7 @@ def fragmentation_Hbox(top):
     Heuristics_Dropdown = widgets.Dropdown(description="Choose fragmentation heuristic",
                                            options=_allowed_fragment_methods, value="lig_resSeq+",
                                            layout={"width": "max-content"},
-                                           style={"description_width": "initial"})
+                                           style={"description_width": "auto"})
 
 
     Evaluated_Output= widgets.Output(layout={'border': '1px solid black'})
@@ -187,13 +187,13 @@ def AA_Label_Options():
                                                       "it from the contact label.",
                                               description="toggle 'anchor'",
                                               icon="check",
-                                              layout={"width": "50%"})
+                                              layout={"width": "49%"})
 
     tgl_consensus_labs = ipywidgets.ToggleButton(value=True,
                                                  tooltip="toggle consensus labels",
                                                  description="consensus labels",
                                                  icon="check",
-                                                 layout={"width": "50%"})
+                                                 layout={"width": "49%"})
     tgl_color_hint = ipywidgets.ToggleButton(value=False,
                                              tooltip="Use colors to hint if a single dataset is either "
                                                      "entirely missing or the only one present."
@@ -204,9 +204,9 @@ def AA_Label_Options():
                                                      " in puruple. Notice the signs '-' and '+' denoting "
                                                      "absence or presence.",
                                              description="color hint",
-                                             layout={"width": "50%"})
+                                             layout={"width": "49%"})
     fontsize = ipywidgets.IntText(value=16, description="fontsize",
-                                  layout={"width": "50%"})
+                                  layout={"width": "49%"})
 
     AA_labels = _VBox([desc,
                                  _HBox([
@@ -224,7 +224,7 @@ def AA_Label_Options():
     }
     return AA_labels, argmap
 
-def Bar_Options():
+def Bar_Options(freqslider=None):
     tgl_freqs_above = ipywidgets.ToggleButton(value=True,
                                               description="hide freqs >=",
                                               tooltip="The pairs where all datasets show freqs >= this number "
@@ -257,15 +257,26 @@ def Bar_Options():
                                       style={"description_width": "max-content"},
                                       layout={"width": "30%"})
 
+    if freqslider is None:
+        identity = _VBox([
+            ipywidgets.Button(description="Contact Frequency Options:",
+                              layout={"width": "99%"}),
+            _HBox([tgl_freqs_above, thrs_above]),
+            _HBox([tgl_freqs_below, thrs_below]),
+            # _HBox(colors)
+        ],
+            layout={"width": "30%"})
+    else:
+        identity = _VBox([
+            ipywidgets.Button(description="Contact Frequency Options:",
+                              layout={"width": "99%"}),
+            _HBox([freqslider]),
+            _HBox([tgl_freqs_above, thrs_above]),
+            _HBox([tgl_freqs_below, thrs_below]),
+            # _HBox(colors)
+        ],
+            layout={"width": "30%"})
 
-    identity = _VBox([
-        ipywidgets.Button(description="Contact Frequency Options:",
-                          layout={"width": "99%"}),
-        _HBox([tgl_freqs_above, thrs_above]),
-        _HBox([tgl_freqs_below, thrs_below]),
-        # _HBox(colors)
-    ],
-        layout={"width": "30%"})
 
     argmap = {"kwargs": {
         "remove_identities": tgl_freqs_above,
@@ -277,11 +288,11 @@ def Bar_Options():
 
     return identity, argmap
 
-def general_options(horizontal=True):
+def general_options(freqslider=None,horizontal=True):
 
     AA_labels, argmap1 = AA_Label_Options()
 
-    Bars, argmap2 = Bar_Options()
+    Bars, argmap2 = Bar_Options(freqslider=freqslider)
 
     colors = color_pickers()
 
@@ -306,6 +317,17 @@ def general_options(horizontal=True):
                  ), argmap1
 
 def freq_slider(value=3.5):
+
+    return widgets.SelectionSlider(
+        options=["%2.1f Ang"%ii for ii in _np.linspace(0,5,50)],
+        value="3.5 Ang",
+        description='Neighbor Distance cutoff',
+        style={"description_width": "auto"},
+        disabled=False,
+        continuous_update=False,
+        readout=True
+    )
+
     return ipywidgets.FloatSlider(
         value=value,
         min=0,
@@ -391,15 +413,20 @@ def screen3(indict,top, individual_controls=False,
                                    layout={"width":"99%"})
     output_acc.set_title(0, "Output")
 
-    options_wdg, main_argmap = general_options()
+    options_wdg, main_argmap = general_options(freqslider=FreqSlider)
     tgl_per_figure = ipywidgets.ToggleButton(description={True:"on",
                                                           False:"off"}[individual_controls],
                                              value=individual_controls,
                                              icon={True:"check",
                                                    False:""}[individual_controls])
-
-    options_wdg = _HBox(list(options_wdg.children)+[_VBox([ipywidgets.Button(description="Per-Figure-Options"),
+    per_figure_horizontal = ipywidgets.Dropdown(description="position:",
+                                                options=["left", "right", "bottom"],
+                                                style={"description_width":"initial"},
+                                                layout={"width":"max-content"},
+                                                value="right")
+    options_wdg = _HBox(list(options_wdg.children)+[_VBox([ipywidgets.Button(description="Per-Neighborhood-Options"),
                                                            tgl_per_figure,
+                                                           per_figure_horizontal,
                                                            ])])
     main_argmap["frequency"]=FreqSlider
     gen_opts_acc = ipywidgets.Accordion(
@@ -460,18 +487,14 @@ def screen3(indict,top, individual_controls=False,
 
                 fs = freq_slider()
                 fs.description = "cutoff"
+                fs.layout={"width":"99%"}
 
-                indv_options_box, indv_argmap = general_options(horizontal=False)
+                indv_options_box, indv_argmap = general_options(freqslider=fs,horizontal=False)
                 indv_argmap["frequency"]=fs
 
-                indv_options_box = _VBox([fs]+list(indv_options_box.children)
-                                         #+[FileChooser()]
-                                         )
                 [setattr(child,"layout",{"width":"100%"}) for child in indv_options_box.children]
 
-                indv_options_box.layout = {"width":"31%",
-                              #'border': '1px solid black'
-                                           }
+
 
                 [setattr(val, "_res_idx", rr) for key, val in indv_argmap.items() if key!="kwargs"]
                 [setattr(val, "_res_idx", rr) for key, val in indv_argmap["kwargs"].items()]
@@ -484,10 +507,25 @@ def screen3(indict,top, individual_controls=False,
                 per_fig_controls[rr] = indv_argmap
                 image_widgets[rr] = img_wdg
             if individual_controls.value:
-                acc_children = [_HBox([_HBox([img_wdg], layout={"width": "68%"}),
-                                                        indv_options_box],
-                                                       layout={"width": "99%"}),
-                                                 ]
+                if per_figure_horizontal.value in ["right", "left"]:
+                    indv_options_box = _VBox(indv_options_box.children)
+                                             # +[FileChooser()]
+                    indv_options_box.layout = {"width": "31%",
+                                                #'border': '1px solid gray'
+                                               }
+                    for_HBox = [_HBox([img_wdg], layout={"width": "68%"}),
+                                indv_options_box]
+                    acc_children = [_HBox([for_HBox[ii] for ii in {"right":[0,1],
+                                                                   "left": [1,0]}[per_figure_horizontal.value]],
+                                                           layout={"width": "99%"}),
+                                                     ]
+                elif per_figure_horizontal.value == 'bottom':
+                    acc_options = ipywidgets.Accordion([_HBox(indv_options_box.children)])
+                    acc_options.set_title(0,"Options")
+                    acc_children = [_VBox([_HBox([img_wdg], layout={"width": "99%"}),
+                                           acc_options],
+                                          layout={"width": "99%"}),
+                                    ]
             else:
                 acc_children = [_HBox([img_wdg], layout={"width": "68%"})]
 
@@ -515,14 +553,11 @@ def screen3(indict,top, individual_controls=False,
     # No the lambda gets updated
     run_button.on_click(run_lambda, res_idxs)
 
-    def tgl_per_figure_effect(traits):
-        tgl = traits["owner"]
-        print(tgl)
-        run_lambda(None)
-
     tgl_per_figure.observe(lambda traits: change_icon(traits), names="value")
     tgl_per_figure.observe(lambda traits: change_on_off(traits), names="value")
-    tgl_per_figure.observe(lambda traits : tgl_per_figure_effect(traits), names="value")
+    tgl_per_figure.observe(lambda __ : run_lambda(None), names="value")
+
+    per_figure_horizontal.observe(lambda __ : run_lambda(None),names="value")
 
 
     FreqSlider.observe(lambda __ : run_lambda(None), names="value")
