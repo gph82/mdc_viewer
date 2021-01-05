@@ -69,7 +69,12 @@ def hd5_2_dict_of_CGdicts(obj, restrict_to_residxs=None, decompress_here=True):
                     sCP["time_traces.time_trajs"] = ref_t
                     if decompress_here:
                         decompress_serialized_CP(sCP)
-            CG["name"] = [None if CGdict["name"][()].decode().lower()=="none" else CGdict["name"][()].decode()][0]
+            iname = CGdict["name"][()]
+            try:
+                iname = iname.decode()
+            except AttributeError:
+                pass
+            CG["name"] = [None if iname.lower()=="none" else iname][0]
             CG["interface_residxs"]=CGdict["interface_residxs"][()]
             output_dict[int(key)] = CG
 
