@@ -76,6 +76,7 @@ def hd5_2_dict_of_CGdicts(obj, restrict_to_residxs=None, decompress_here=True):
                 pass
             CG["name"] = [None if iname.lower()=="none" else iname][0]
             CG["interface_residxs"]=CGdict["interface_residxs"][()]
+            CG["neighbors_excluded"]=CGdict["neighbors_excluded"][()]
             output_dict[int(key)] = CG
 
     return output_dict
@@ -184,8 +185,9 @@ def dict_of_CGs_2_hdf5(f, idict, compress=False,exclude=None, stride=1):
                     if compress and key2 =="time_traces.atom_pair_trajs":
                         val2 = [",".join(["%u %u"%tuple(pair) for pair in tt]) for tt in val2]
                     h.create_dataset(key2, data=val2)
-            g.create_dataset("interface_residxs", data=iarch["interface_residxs"])
-            g.create_dataset("name", data=str(iarch["name"]))
+            for key3 in ["interface_residxs","neighbors_excluded"]:
+                g.create_dataset(key3, data=iarch[key3])
+            g.create_dataset("name",data=str("name"))
         except ValueError as e:
             print("Neighborhood '%s' already exists in archive '%s'" % (str(key), f))
             print("Skipping")
