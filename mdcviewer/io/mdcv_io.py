@@ -15,14 +15,14 @@ def load_data(
    # _tqdm = lambda x : x
 
 
-    Ns = Parallel(n_jobs=1, verbose=verbose)(delayed(hd5_2_dict_of_CGdicts)(ff,
+    Ns = Parallel(n_jobs=1, verbose=verbose)(delayed(hd5_2_dict_of_CGdicts_new)(ff,
                                                                         **kwargs_hd5_2_archives
                                                                         ) for ff in _tqdm(files.values(),
                                                                      desc="loading data"
                                                                      ))
 
     return {key:val for key, val in zip(files.keys(),Ns)}
-def hd5_2_dict_of_CGdicts(obj, restrict_to_residxs=None, decompress_here=True):
+def hd5_2_dict_of_CGdicts(obj, restrict_to_residxs=None, decompress_here=True, database=False):
     r"""
 
     Parameters
@@ -56,6 +56,8 @@ def hd5_2_dict_of_CGdicts(obj, restrict_to_residxs=None, decompress_here=True):
         ref_t = h5py_fileobject["ref_t"][()]
     for key, CGdict in h5py_fileobject.items():
         # print(key)
+        from collections import defaultdict as _defdict
+        traj_dict={}
         if key.isdigit() and valid_res(int(key)):
 
             CG = {}
@@ -80,6 +82,83 @@ def hd5_2_dict_of_CGdicts(obj, restrict_to_residxs=None, decompress_here=True):
             output_dict[int(key)] = CG
 
     return output_dict
+
+def hd5_2_dict_of_CGdicts_new(obj, restrict_to_residxs=None, decompress_here=True, database=False):
+    r"""
+
+    Parameters
+    ----------
+    obj : string or :obj:`h5py.File` object
+        If string, path to an .hdf5 file
+
+    Returns
+    -------
+    neighborhoods : dict
+        Dictionary keyed with residue indices
+        and valued with :obj:`ContactGroups`
+        representing the neighborhood of
+        a residue with that index
+
+    """
+    import h5py
+    if _path.exists(obj):
+        h5py_fileobject = h5py.File(obj,"r")
+    else:
+        h5py_fileobject = obj
+
+    if restrict_to_residxs is None:
+        valid_res = lambda res : True
+    else:
+        valid_res = lambda res : res in restrict_to_residxs
+
+    output_dict = {}
+    if "compress" in h5py_fileobject.keys() and h5py_fileobject["compress"][()]:
+        needs_decompression=True
+        ref_t = h5py_fileobject["ref_t"][()]
+    traj_dict = {}
+    for key, CGdict in h5py_fileobject.items():
+        # print(key)
+        if key.isdigit() and valid_res(int(key)):
+            tdict = {}
+            CG = {}
+
+            serialized_CPs = list(
+                [{key: val[()] for key, val in dict(val).items()} for key, val in CGdict.items() if key.isdigit()])
+
+            for CP in serialized_CPs:
+                ii, jj = CP["residues.idxs_pair"]
+                #print(CP.keys())
+                sorted = _np.sort([ii, jj])
+                if sorted[0] not in tdict.keys():
+                    tdict[sorted[0]] = {}
+                    decode_dict_values(CP)
+                    tdict[sorted[0]][sorted[1]]=CP["time_traces.ctc_trajs"]
+                try:
+                    tdict[sorted[1]][sorted[0]]=tdict[sorted[0]][sorted[1]]
+                except KeyError:
+                    print(ii,jj)
+                    tdict[sorted[1]]={}
+                    tdict[sorted[1]][sorted[0]]=tdict[sorted[0]][sorted[1]]
+            traj_dict[key]=tdict
+            """
+            CG["serialized_CPs"] = [decode_dict_values(idict) for idict in serialized_CPs]
+            if needs_decompression:
+                for sCP in serialized_CPs:
+                    sCP["time_traces.time_trajs"] = ref_t
+                    if decompress_here:
+                        decompress_serialized_CP(sCP)
+            iname = CGdict["name"][()]
+            try:
+                iname = iname.decode()
+            except AttributeError:
+                pass
+            CG["name"] = [None if iname.lower()=="none" else iname][0]
+            CG["interface_residxs"]=CGdict["interface_residxs"][()]
+            CG["neighbors_excluded"]=CGdict["neighbors_excluded"][()]
+            output_dict[int(key)] = CG
+            """
+
+    return traj_dict
 
 from copy import deepcopy as _deepcopy
 def decompress_serialized_CP(sCP,inplace=True):

@@ -10,14 +10,14 @@ from contextlib import redirect_stdout
 import pandas
 from matplotlib import pyplot as _plt
 import io
-import mdcv_io
+from mdcviewer import io as _mdcvio
 from collections import defaultdict as _defdict
 import mdtraj as _md
 import functs
 # TODO use interact instead of the argmaps!
 def show():
     top = _md.load("data/top.pdb.gz").top
-    data = mdcv_io.load_data(verbose=0,
+    data = _mdcvio.load_data(verbose=0,
                              #decompress_here=False
                              )
     screen3(data,
@@ -476,7 +476,7 @@ def screen3(indict,top, individual_controls=False,
                     try:
                         CGs[rr][key]
                     except KeyError:
-                        CGs[rr][key] = mdcv_io.CGdict2CG(iarch[rr], top=top)
+                        CGs[rr][key] = _mdcvio.CGdict2CG(iarch[rr], top=top)
                 else:
                     with Errors:
                         Errors.clear_output(wait="True")
