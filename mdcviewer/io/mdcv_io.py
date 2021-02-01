@@ -4,6 +4,8 @@ import numpy as _np
 from joblib import Parallel, delayed
 from tqdm import tqdm_notebook as _tqdm
 import numpy as _np
+
+
 def load_data(
         files={
             "A": "data/neighborhoods.A.B2AR.zip.stride.10.hdf5",
@@ -11,18 +13,24 @@ def load_data(
             "C": "data/neighborhoods.C.B2AR.zip.stride.10.hdf5"
         },
         verbose=0,
-              **kwargs_hd5_2_archives):
+        database=False,
+        **kwargs_hd5_2_archives,
+       ):
    # _tqdm = lambda x : x
 
+    if database:
+        funct = hd5_2_dabase
+    else:
+        funct = hd5_2_dict_of_CGdicts
 
-    Ns = Parallel(n_jobs=1, verbose=verbose)(delayed(hd5_2_dict_of_CGdicts_new)(ff,
-                                                                        **kwargs_hd5_2_archives
-                                                                        ) for ff in _tqdm(files.values(),
+    Ns = Parallel(n_jobs=1, verbose=verbose)(delayed(funct)(ff,
+                                                                   **kwargs_hd5_2_archives
+                                                                   ) for ff in _tqdm(files.values(),
                                                                      desc="loading data"
                                                                      ))
 
     return {key:val for key, val in zip(files.keys(),Ns)}
-def hd5_2_dict_of_CGdicts(obj, restrict_to_residxs=None, decompress_here=True, database=False):
+def hd5_2_dict_of_CGdicts(obj, restrict_to_residxs=None, decompress_here=True):
     r"""
 
     Parameters
@@ -83,7 +91,7 @@ def hd5_2_dict_of_CGdicts(obj, restrict_to_residxs=None, decompress_here=True, d
 
     return output_dict
 
-def hd5_2_dict_of_CGdicts_new(obj, restrict_to_residxs=None, decompress_here=True, database=False):
+def hd5_2_dabase(obj, restrict_to_residxs=None, decompress_here=True, database=False):
     r"""
 
     Parameters
@@ -115,11 +123,10 @@ def hd5_2_dict_of_CGdicts_new(obj, restrict_to_residxs=None, decompress_here=Tru
     if "compress" in h5py_fileobject.keys() and h5py_fileobject["compress"][()]:
         needs_decompression=True
         ref_t = h5py_fileobject["ref_t"][()]
-    traj_dict = {}
+    tdict = {}
     for key, CGdict in h5py_fileobject.items():
-        # print(key)
+        #print(key)
         if key.isdigit() and valid_res(int(key)):
-            tdict = {}
             CG = {}
 
             serialized_CPs = list(
@@ -127,38 +134,20 @@ def hd5_2_dict_of_CGdicts_new(obj, restrict_to_residxs=None, decompress_here=Tru
 
             for CP in serialized_CPs:
                 ii, jj = CP["residues.idxs_pair"]
-                #print(CP.keys())
-                sorted = _np.sort([ii, jj])
-                if sorted[0] not in tdict.keys():
-                    tdict[sorted[0]] = {}
-                    decode_dict_values(CP)
-                    tdict[sorted[0]][sorted[1]]=CP["time_traces.ctc_trajs"]
-                try:
-                    tdict[sorted[1]][sorted[0]]=tdict[sorted[0]][sorted[1]]
-                except KeyError:
-                    print(ii,jj)
-                    tdict[sorted[1]]={}
-                    tdict[sorted[1]][sorted[0]]=tdict[sorted[0]][sorted[1]]
-            traj_dict[key]=tdict
-            """
-            CG["serialized_CPs"] = [decode_dict_values(idict) for idict in serialized_CPs]
-            if needs_decompression:
-                for sCP in serialized_CPs:
-                    sCP["time_traces.time_trajs"] = ref_t
-                    if decompress_here:
-                        decompress_serialized_CP(sCP)
-            iname = CGdict["name"][()]
-            try:
-                iname = iname.decode()
-            except AttributeError:
-                pass
-            CG["name"] = [None if iname.lower()=="none" else iname][0]
-            CG["interface_residxs"]=CGdict["interface_residxs"][()]
-            CG["neighbors_excluded"]=CGdict["neighbors_excluded"][()]
-            output_dict[int(key)] = CG
-            """
-
-    return traj_dict
+                a, b = _np.sort([ii, jj])
+                if a not in tdict.keys():
+                    tdict[a]={}
+                if b not in tdict.keys():
+                    tdict[b]={}
+                if tdict[a].get(b) is None:
+                    CP = decode_dict_values(CP)
+                    if needs_decompression:
+                        if decompress_here:
+                            decompress_serialized_CP(CP)
+                    tdict[a][b] = CP["time_traces.ctc_trajs"]
+                    assert tdict[b].get(a) is None
+                    tdict[b][a] = tdict[a][b]
+    return tdict
 
 from copy import deepcopy as _deepcopy
 def decompress_serialized_CP(sCP,inplace=True):
