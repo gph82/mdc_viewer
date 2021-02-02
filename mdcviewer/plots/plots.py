@@ -79,29 +79,27 @@ def lambda_compare_neighborhoods(CG_dict, argmap, site=False):
     -------
 
     """
+    """
     anchor_str = _shortenAA(str(list(CG_dict.values())[0]._contacts[0].residues.anchor_residue),
                             substitute_fail="long",
                             keep_index=True)
-    if site:
-        anchor=None
-    else:
-        anchor_str = list(CG_dict.values())[0].anchor_res_and_fragment_str_short
-        if argmap["kwargs"]["anchor"].value:
-            anchor=anchor_str
-        else:
-            anchor=None
-    if argmap["tgl_consensus"].value:
-        defrag=" "
+    """
 
+    kwargs = argmap2kwargs_compare_groups_of_contacts(argmap)
+    anchor = None
+    if site:
+        title_str = str(list(CG_dict.values())[0].name)
     else:
-        defrag="@"
-        if anchor is not None:
-            anchor_str = list(CG_dict.values())[0]._contacts[0]._attribute_neighborhood_names.anchor_residue_short
+        title_str = list(CG_dict.values())[0].anchor_res_and_fragment_str_short
+        if argmap["kwargs"]["anchor"].value:
+            anchor=title_str
+
+        #if anchor is not None:
+        #    anchor_str = list(CG_dict.values())[0]._contacts[0]._attribute_neighborhood_names.anchor_residue_short
     return _compare_groups_of_contacts(CG_dict,
                                        anchor = anchor,
-                                       defrag = defrag,
-                                       title='%s ' % str(anchor_str.replace("@", "^")),
-                                       **argmap2kwargs_compare_groups_of_contacts(argmap)
+                                       title='%s ' % str(title_str.replace("@", "^")),
+                                       **kwargs,
                                        )[0]
 
 def argmap2kwargs_compare_groups_of_contacts(argmap=None):
@@ -122,6 +120,8 @@ def argmap2kwargs_compare_groups_of_contacts(argmap=None):
     -------
     kwargs : dict
     """
+
+
     kwargs = {
     "ctc_cutoff_Ang" : float(argmap["frequency"].value.split(" ")[0]),
     "remove_identities" : argmap["kwargs"]["remove_identities"].value,
@@ -131,6 +131,11 @@ def argmap2kwargs_compare_groups_of_contacts(argmap=None):
     "fontsize" : argmap["kwargs"]["fontsize"].value,
     "colors" : _center_colors,
     }
+
+    if argmap["tgl_consensus"].value:
+        kwargs.update({"defrag":None})
+    else:
+        kwargs.update({"defrag": "@"})
     return kwargs
 
 

@@ -3,6 +3,8 @@ import os.path as _path
 import numpy as _np
 from joblib import Parallel, delayed
 from tqdm import tqdm_notebook as _tqdm
+import h5py
+
 import numpy as _np
 
 
@@ -16,18 +18,37 @@ def load_data(
         database=False,
         **kwargs_hd5_2_archives,
        ):
-   # _tqdm = lambda x : x
+    r"""
+    Load pre-computed data in form of ``hdf5`` files.
 
+    Parameters
+    ----------
+    files : dict
+        Dictionary with the paths to the hd5f-files
+        The keys will be used as state descriptors
+    verbose : int, default is 1
+        The verbosity of the joblib-Parallel read-in
+    database : bool, default is False
+        Whether to wrap around :obj:`hd5_2_database`
+        or :obj:`hd5_2_dict_of_CGdicts` when reading
+    kwargs_hd5_2_archives: dict
+        Will be passed to the hd5_2_* functions
+
+    Returns
+    -------
+    data : dict
+
+    """
     if database:
-        funct = hd5_2_dabase
+        funct = hd5_2_database
     else:
         funct = hd5_2_dict_of_CGdicts
 
     Ns = Parallel(n_jobs=1, verbose=verbose)(delayed(funct)(ff,
-                                                                   **kwargs_hd5_2_archives
-                                                                   ) for ff in _tqdm(files.values(),
-                                                                     desc="loading data"
-                                                                     ))
+                                                            **kwargs_hd5_2_archives
+                                                            ) for ff in _tqdm(files.values(),
+                                                                              desc="loading data"
+                                                                              ))
 
     return {key:val for key, val in zip(files.keys(),Ns)}
 def hd5_2_dict_of_CGdicts(obj, restrict_to_residxs=None, decompress_here=True):
@@ -47,7 +68,6 @@ def hd5_2_dict_of_CGdicts(obj, restrict_to_residxs=None, decompress_here=True):
         a residue with that index
 
     """
-    import h5py
     if _path.exists(obj):
         h5py_fileobject = h5py.File(obj,"r")
     else:
@@ -63,9 +83,6 @@ def hd5_2_dict_of_CGdicts(obj, restrict_to_residxs=None, decompress_here=True):
         needs_decompression=True
         ref_t = h5py_fileobject["ref_t"][()]
     for key, CGdict in h5py_fileobject.items():
-        # print(key)
-        from collections import defaultdict as _defdict
-        traj_dict={}
         if key.isdigit() and valid_res(int(key)):
 
             CG = {}
@@ -91,8 +108,11 @@ def hd5_2_dict_of_CGdicts(obj, restrict_to_residxs=None, decompress_here=True):
 
     return output_dict
 
-def hd5_2_dabase(obj, restrict_to_residxs=None, decompress_here=True, database=False):
+def hd5_2_database(obj, restrict_to_residxs=None, decompress_here=True, database=False):
     r"""
+
+    Return a per-contact datatabse. The database is a dictionary of dictionaries,
+    keyed with residue indices and valued with residue-residue mindist values
 
     Parameters
     ----------
@@ -108,7 +128,6 @@ def hd5_2_dabase(obj, restrict_to_residxs=None, decompress_here=True, database=F
         a residue with that index
 
     """
-    import h5py
     if _path.exists(obj):
         h5py_fileobject = h5py.File(obj,"r")
     else:
@@ -123,7 +142,7 @@ def hd5_2_dabase(obj, restrict_to_residxs=None, decompress_here=True, database=F
     if "compress" in h5py_fileobject.keys() and h5py_fileobject["compress"][()]:
         needs_decompression=True
         ref_t = h5py_fileobject["ref_t"][()]
-    tdict = {}
+    outputCPs = {}
     for key, CGdict in h5py_fileobject.items():
         #print(key)
         if key.isdigit() and valid_res(int(key)):
@@ -135,22 +154,45 @@ def hd5_2_dabase(obj, restrict_to_residxs=None, decompress_here=True, database=F
             for CP in serialized_CPs:
                 ii, jj = CP["residues.idxs_pair"]
                 a, b = _np.sort([ii, jj])
-                if a not in tdict.keys():
-                    tdict[a]={}
-                if b not in tdict.keys():
-                    tdict[b]={}
-                if tdict[a].get(b) is None:
+                if a not in outputCPs.keys():
+                    outputCPs[a]={}
+                if b not in outputCPs.keys():
+                    outputCPs[b]={}
+                if outputCPs[a].get(b) is None:
                     CP = decode_dict_values(CP)
                     if needs_decompression:
+                        CP["time_traces.time_trajs"] = ref_t
                         if decompress_here:
                             decompress_serialized_CP(CP)
-                    tdict[a][b] = CP["time_traces.ctc_trajs"]
-                    assert tdict[b].get(a) is None
-                    tdict[b][a] = tdict[a][b]
-    return tdict
+                    outputCPs[a][b] = CP#["time_traces.ctc_trajs"]
+                    assert outputCPs[b].get(a) is None
+                    outputCPs[b][a] = outputCPs[a][b]
+    return outputCPs
 
 from copy import deepcopy as _deepcopy
 def decompress_serialized_CP(sCP,inplace=True):
+    r"""
+    Decompress a :obj:`~mdciao.contacts.ContactPair` object that's been compressed when serialized
+
+      * ``time_traces.atom_pair_trajs`` get turned to pairs of 2d nd.arrays of ints (originally compressed to CSV-strings)
+      * ``time_traces.ctc_trajs`` get turned to lists of floats and divided by 1000 (originally compressed to *1000- CSV-strings)
+
+    Parameters
+    ----------
+    sCP : dict
+        :obj:`~mdciao.contacts.ContactPair`
+        serialized to a dict
+    inplace : bool, default is True
+        Decompress in place, else
+        return a copy and leave
+        :obj:`sCP` intact
+
+    Returns
+    -------
+    dsCP : dict
+        Only returns when :obj:`inplace`
+
+    """
 
     if inplace:
         out = sCP
@@ -191,8 +233,51 @@ def decode_dict_values(idict):
     return idict
 
 
-def CGdict2CG(filename, **cp_kwargs):
-    mapping = {
+def CGdict2CG(filename, return_CPs=False, **cp_kwargs):
+    r"""
+
+    Parameters
+    ----------
+    filename
+    cp_kwargs
+
+    Returns
+    -------
+
+    """
+
+
+    if isinstance(filename,str):
+        a = _np.load(filename, allow_pickle=True)[()]
+    elif isinstance(filename,dict):
+        a = filename
+
+
+    for sCP in a["serialized_CPs"]:
+        try:
+            decompress_serialized_CP(sCP,inplace=True)
+        except AttributeError as e:
+            pass
+    contact_pairs = [sCP2CP(sCP, **cp_kwargs) for sCP in a["serialized_CPs"]]
+
+    return mdciao.contacts.ContactGroup(contact_pairs, **{key:val for key,val in a.items() if key!="serialized_CPs"})
+
+def sCP2CP(sCP,**cp_kwargs):
+    r"""
+    Turn a serialized ContactPair (dict) into an actual :obj:`~mdciao.contacts.ContactPair`-object
+
+    Parameters
+    ----------
+    sCP : dict
+    cp_kwargs : dict
+        Will be passed to :obj:`~mdciao.contacts.ContactPair`
+
+    Returns
+    -------
+
+    """
+    cp_args = ["residues.idxs_pair", "time_traces.ctc_trajs", "time_traces.time_trajs"]
+    _hd5f2CP_mapping = {
         'res_idxs_pair': 'residues.idxs_pair',
         'ctc_trajs': 'time_traces.ctc_trajs',
         'time_trajs': 'time_traces.time_trajs',
@@ -204,26 +289,10 @@ def CGdict2CG(filename, **cp_kwargs):
         'consensus_labels': 'residues.consensus_labels',
         'trajs' : "time_traces.trajs"
         }
-
-    if isinstance(filename,str):
-        a = _np.load(filename, allow_pickle=True)[()]
-    elif isinstance(filename,dict):
-        a = filename
-
-    cp_args = ["residues.idxs_pair", "time_traces.ctc_trajs", "time_traces.time_trajs"]
-
-    for sCP in a["serialized_CPs"]:
-        try:
-            decompress_serialized_CP(sCP,inplace=True)
-        except AttributeError as e:
-            pass
-    contact_pairs = [mdciao.contacts.ContactPair(*[cp[arg] for arg in cp_args],
-                                 **{key: cp[val] for key, val in mapping.items() if mapping[key] not in cp_args},
-                                 **cp_kwargs,
-                                 ) for cp in a["serialized_CPs"]]
-
-    return mdciao.contacts.ContactGroup(contact_pairs, **{key:val for key,val in a.items() if key!="serialized_CPs"})
-
+    return mdciao.contacts.ContactPair(*[sCP[arg] for arg in cp_args],
+                                       **{key: sCP[val] for key, val in _hd5f2CP_mapping.items() if
+                                          _hd5f2CP_mapping[key] not in cp_args},
+                                       **cp_kwargs)
 def dict_of_CGs_2_hdf5(f, idict, compress=False,exclude=None, stride=1):
     if exclude is None:
         exclude=[]
