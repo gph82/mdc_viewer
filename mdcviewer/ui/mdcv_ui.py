@@ -171,6 +171,95 @@ def residue_selection(top, fragments=None, initial_value="R131,GDP*,L393-L394") 
     widgets = namedtuple("residue_selection_box",["itself","residue_input","preview","clear"])(box, residue_input, evaluate_residues, clear)
     return widgets, residue_idxs
 
+class Indexed_Combobox(ipywidgets.Combobox):
+
+    def __init__(self,*args,**kwargs):
+        opts = kwargs.get("options")
+        kwargs["options"]=["%04u: %s"%(ii,istr) for ii, istr in enumerate(opts)]
+        ipywidgets.Combobox.__init__(self,*args,**kwargs)
+        #self.value=kwargs["options"][0]
+
+    @property
+    def index(self):
+        try:
+            return int(self.value.split(":")[0])
+        except:
+            return None
+
+
+def connected_bond_lists(top, bond_dict, l1_desc='or pick from list:') -> namedtuple:
+    r""" Create two widgets containing residue pairs
+
+    If you select residue "i" on the first widget,
+    the second widget shows the set of {j,k,l...}
+    residues for which a ContactPair can be created
+
+    Parameters
+    ----------
+    top
+    bond_dict
+
+    Returns
+    -------
+    bond_from_list : namedtuple
+
+    """
+
+    bond_from_list_NamedTuple = namedtuple("bond_from_list", ["list1", "list2", "add_button"])
+
+
+    residue_list_1 =Indexed_Combobox(
+
+        options=[str(rr) for rr in top.residues],
+        #rows=1,
+        description=l1_desc,
+        # disabled=False,
+        layout={"width": "max-initial"},
+        style={"description_width": "auto",
+               },
+        placeholder="Select and/or find residues"
+    )
+
+    """
+    residue_list_1 =ipywidgets.Select(
+        options=[str(rr) for rr in top.residues],
+        rows=1,
+        description=l1_desc,
+        # disabled=False,
+        layout={"width": "max-content", },
+        style={"description_width": "auto",
+               },
+        #placeholder="Select and/or find residues"
+    )
+    """
+
+    residue_list_2 = ipywidgets.Select(
+        options=[],
+        rows=1,
+        description='',
+        # disabled=False,
+        layout={"width": "max-content", },
+        style={"description_width": "auto",
+               },
+    )
+
+    # Populate the second residue with bond-partners
+    def update_residue_list_2():
+        if residue_list_1.index is None:
+            idxs=[None]
+            opts = idxs
+        else:
+            idxs = bond_dict[residue_list_1.index]
+            opts = [str(top.residue(ii)) for ii in idxs]
+
+        residue_list_2.options=tuple(opts)
+    update_residue_list_2()
+
+    residue_list_1.observe(lambda _ : update_residue_list_2(), names="value")
+    add_bond_from_list = ipywidgets.Button(description="add",
+                                           layout={"width": "auto"})
+    return bond_from_list_NamedTuple( residue_list_1, residue_list_2, add_bond_from_list)
+
 def bond_selection(top, bond_dict, fragments=None,
                    #initial_value="R131-E392"
                    ) -> Tuple[namedtuple, dict]:
@@ -199,51 +288,21 @@ def bond_selection(top, bond_dict, fragments=None,
     evaluated_bonds = ipywidgets.Textarea(placeholder="Evaluated list of bonds will appear here",
                                          layout={"width":"99%"})
 
-    residue_list_1 = ipywidgets.Select(
-        options=[str(rr) for rr in top.residues],
-        rows=1,
-        description='or pick from list:',
-        # disabled=False,
-        layout={"width": "max-content", },
-        style={"description_width": "auto",
-               },
-    )
+    bond_from_list_nt = connected_bond_lists(top, bond_dict)
+    #residue_list_1, residue_list_2, add_bond_from_list =
 
-    residue_list_2 = ipywidgets.Select(
-        options=[],
-        rows=1,
-        description='',
-        # disabled=False,
-        layout={"width": "max-content", },
-        style={"description_width": "auto",
-               },
-    )
-
-    # Populate the second residue with bond-partners
-    def update_residue_list_2():
-        idxs = bond_dict[residue_list_1.index]
-        if idxs[0] is None:
-            opts = idxs
-        else:
-            opts = [str(top.residue(ii)) for ii in bond_dict[residue_list_1.index]]
-        residue_list_2.options=tuple(opts)
-    update_residue_list_2()
-
-    residue_list_1.observe(lambda _ : update_residue_list_2(), names="value")
-
-    add_bond_from_list = ipywidgets.Button(description="add",
-                                  layout={"width":"auto"})
     residue_idxs = {}
-    residue_idxs["res"]=[]
+    residue_idxs["res"] = []
+
     def add_bond_from_lists():
-        ii, jj = residue_list_1.index, bond_dict[residue_list_1.index][residue_list_2.index]
-        if None not in [ii,jj]:
-            evaluated_bonds.value += "%s[%u]-%s[%u]\n"%(residue_list_1.value, ii,
-                                                    residue_list_2.value, jj)
+        ii, jj = bond_from_list_nt.list1.index, bond_dict[bond_from_list_nt.list1.index][bond_from_list_nt.list2.index]
+        if None not in [ii, jj]:
+            evaluated_bonds.value += "%s[%u]-%s[%u]\n" % (bond_from_list_nt.list1.value, ii,
+                                                          bond_from_list_nt.list2.value, jj)
 
-            residue_idxs["res"].append([ii,jj])
+            residue_idxs["res"].append([ii, jj])
 
-    add_bond_from_list.on_click(lambda _ : add_bond_from_lists())
+    bond_from_list_nt.add_button.on_click(lambda _: add_bond_from_lists())
 
 
 
@@ -262,7 +321,7 @@ def bond_selection(top, bond_dict, fragments=None,
     if fragments is None:
         fragments = [_np.arange(top.n_residues)]
 
-    def eval_bond_selection():
+    def eval_manual_bonds():
         if len(manual_bond_input.value)>0:
             try:
                 b = io.StringIO()
@@ -273,15 +332,14 @@ def bond_selection(top, bond_dict, fragments=None,
                             evaluated_bonds.value += "%s[%u]-%s[%u]\n" % (top.residue(ii), ii,
                                                                           top.residue(jj), jj)
                             residue_idxs["res"].append([ii,jj])
-                    import mdciao.sites
-                    #mdciao.sites.sites_to_res_pairs([isite],top)
+
             except Exception as e:
                 #residue_idxs["res"] = []
                 istr = str(e)
                 evaluated_bonds.value = istr
 
-    evaluate_bonds.on_click(lambda _ : eval_bond_selection())
-    box = ipywidgets.VBox([ipywidgets.HBox([manual_bond_input, residue_list_1, residue_list_2, add_bond_from_list,
+    evaluate_bonds.on_click(lambda _ : eval_manual_bonds())
+    box = ipywidgets.VBox([ipywidgets.HBox([manual_bond_input, bond_from_list_nt.list1, bond_from_list_nt.list2, bond_from_list_nt.add_button,
                                             evaluate_bonds,
                                             clear],
                                       layout={"width": "99%"}),
@@ -290,7 +348,9 @@ def bond_selection(top, bond_dict, fragments=None,
 
     return bond_selection_box, residue_idxs
 
-AA_labels_NamedTuple = namedtuple("AA_labels", ["itself", "tgl_hide_anchor", "tgl_consensus_labs", "tgl_color_hint", "fontsize", "argmap"])
+AA_labels_NamedTuple = namedtuple("AA_labels",
+                                  ["itself", "tgl_hide_anchor", "tgl_consensus_labs",
+                                   "tgl_color_hint", "fontsize", "argmap"])
 def AA_Label_Options() -> AA_labels_NamedTuple:
     r""""
     Widget for controlling AA-labeling options:
@@ -614,13 +674,9 @@ def screen_sites(indict, top, individual_controls=False,
                  start=False,
                  **kwargs):
 
-    bond_dict = _defdict(list)
-    for key, val in indict.items():
-        for r1, r1dict in val.items():
-            bond_dict[r1].extend(list(r1dict.keys()))
-    bond_dict = {key:_np.unique(val) for key, val in bond_dict.items()}
-    bond_dict.update({key:[None] for key in range(top.n_residues) if key not in list(bond_dict.keys())})
+    bond_dict=get_bond_dict(indict,top)
     bond_selection_box_nc, res_idxs = bond_selection(top, bond_dict, **kwargs)
+    bond_selection_box_nc.manual_bond_input.layout.width="25%"
     bond_selection_acc = ipywidgets.Accordion([bond_selection_box_nc.itself],
                                                  layout={"width": "99%"})
     bond_selection_acc.set_title(0, "Bond Selection")
@@ -628,6 +684,15 @@ def screen_sites(indict, top, individual_controls=False,
                                bond_selection_acc, bond_selection_box_nc.evaluate_bonds, res_idxs,
                                start=False,
                                sites=True)
+
+def get_bond_dict(indict, top):
+    bond_dict = _defdict(list)
+    for key, val in indict.items():
+        for r1, r1dict in val.items():
+            bond_dict[r1].extend(list(r1dict.keys()))
+    bond_dict = {key: _np.unique(val) for key, val in bond_dict.items()}
+    bond_dict.update({key: [None] for key in range(top.n_residues) if key not in list(bond_dict.keys())})
+    return bond_dict
 
 def prepare_GUI_WIP(indict, top, individual_controls,
                     selection_accordion,
@@ -839,6 +904,28 @@ def prepare_run_function_neighborhoods(indict, prog, output_acc_nt, CGs, per_fig
 
     return funct
 
+def ensure_CP_and_return(ii, jj, iarch, top):
+    r"""
+    Check if iarch[ii][jj] is ContactPair, if not overwrite in place, also for [jj][ii]
+    Parameters
+    ----------
+    ii
+    jj
+    iarch
+    top
+
+    Returns
+    -------
+
+    """
+    try:
+        iarch[ii][jj] = _mdcvio.sCP2CP(iarch[ii][jj], top=top)
+        iarch[jj][ii] = iarch[ii][jj]
+        return iarch[ii][jj]
+    except:
+        return None
+
+
 def prepare_run_function_sites(indict, prog, output_acc_nt, CGs,
                                per_fig_controls, image_widgets, per_figure_horizontal, top,
                                       ):
@@ -852,13 +939,17 @@ def prepare_run_function_sites(indict, prog, output_acc_nt, CGs,
                 try:
                     CPs = []
                     for ii, jj in res_idxs["res"]:
-                        if not isinstance(iarch[ii][jj], mdciao.contacts.ContactPair):
-                            iarch[ii][jj] = _mdcvio.sCP2CP(iarch[ii][jj], top=top)
-                            iarch[jj][ii] = iarch[ii][jj]
-                        CPs.append(iarch[ii][jj])
-                    CGs[0][key] = mdciao.contacts.ContactGroup(CPs, neighbors_excluded=0,
-                                                          top=top,
-                                                          name="site")
+                        iCG = ensure_CP_and_return(ii, jj, iarch, top)
+                        if iCG is not None:
+                            CPs.append(iCG)
+
+                    print(key, len(CPs))
+                    #(print(id(iCG.top), iCG.top.__hash__()))
+                    if len(CPs)>0:
+                        CGs[0][key] = mdciao.contacts.ContactGroup(CPs,
+                                                               neighbors_excluded=0,
+                                                               top=top,
+                                                               name="site")
 
                 except Exception as e:
                     print(e)
@@ -873,17 +964,19 @@ def prepare_run_function_sites(indict, prog, output_acc_nt, CGs,
                     _argmap=None
                 else:
                     _argmap = argmap
-                __, indv_acc_wdg_nt = CG2_accordion(CGs[0], general_argmap=_argmap, indv_argmap=None)
+                __, indv_acc_wdg_nt = CG2_accordion(CGs[0],
+                                                    general_argmap=_argmap,
+                                                    indv_argmap=None, top=top, indict=indict)
 
-            output_acc_nt.img_box.children = [indv_acc_wdg_nt.itself]
-            prog.value += 1
-        prog.bar_style = "danger"
+                output_acc_nt.img_box.children = [indv_acc_wdg_nt.itself]
+                prog.value += 1
+            prog.bar_style = "danger"
 
 
     return funct
 
 indv_acc_wdg_nt1 = namedtuple("individual_accordion",["itself","indv_options_box_nt", "image_wdg", "CG_dict"])
-def CG2_accordion(CG, indv_argmap=None, general_argmap=None, img_wdg=None, site=True) -> Tuple[dict, indv_acc_wdg_nt1]:
+def CG2_accordion(CG, indv_argmap=None, general_argmap=None, img_wdg=None, site=True, top=None, indict=None) -> Tuple[dict, indv_acc_wdg_nt1]:
     r"""
     ContactGroup to per-plot accordion, either with minimal or very informed input
 
@@ -941,10 +1034,32 @@ def CG2_accordion(CG, indv_argmap=None, general_argmap=None, img_wdg=None, site=
             options_box.layout = {"width": "98%",
                                           # 'border': '1px solid gray'
                                           }
+            tab_children = [options_box]
+            if top is not None and indict is not None:
+                bond_dict = get_bond_dict(indict,top) #TODO this gets recalc'd every time
+                bond_from_list_nt = connected_bond_lists(top, bond_dict, l1_desc="add pair")
+                tab_children.append(_HBox([bond_from_list_nt.list1,bond_from_list_nt.list2, bond_from_list_nt.add_button],
+                                          #layout={"width": "68%%"}
+                                          ))
+                bond_from_list_nt.add_button.on_click(lambda __ : update_CG())
+                def update_CG():
+                    for key in list(CG.keys()):
+                        ii, jj = bond_from_list_nt.list1.index, bond_from_list_nt.list2.index
+                        r1_idx, r2_idx = ii, bond_dict[ii][jj]
+                        try:
+                            ensure_CP_and_return(r1_idx, r2_idx, indict[key], top)
+                            iCG = mdciao.contacts.ContactGroup(CG[key]._contacts + [indict[key][r1_idx][r2_idx]],
+                                                               top=top,
+                                                               neighbors_excluded=0)
+                            CG[key]=iCG
+                        except KeyError:
+                            pass
+                    plots.indv_plot(argmap, CG, im_wdg=img_wdg, site=True)
+
             # TODO make a named tuple out of this option box
-            options_box = ipywidgets.Tab([options_box])
-            options_box.set_title(0,"opts")
-            #options_box.set_title(1,"opts")
+            options_box = ipywidgets.Tab(tab_children, layout={"width":"33%"})
+            options_box.set_title(0,"Options...")
+            options_box.set_title(1,"Add...")
             for_HBox = [_HBox([img_wdg], layout={"width": "68%"}),
                         options_box]
 
@@ -956,6 +1071,7 @@ def CG2_accordion(CG, indv_argmap=None, general_argmap=None, img_wdg=None, site=
 
     else:
         indv_acc_children = [_HBox([img_wdg], layout={"width": "68%"})]
+        options_box = None
 
     indv_acc_wdg = ipywidgets.Accordion(indv_acc_children)
     indv_acc_wdg.set_title(0, "test")
