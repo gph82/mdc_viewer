@@ -22,7 +22,7 @@ def show():
     data = _mdcvio.load_data(verbose=0,
                              #decompress_here=False
                              )
-    screen_sites(data,
+    screen_neighborhoods(data,
                  top,
                  initial_value="R131,GDP"
                  );
