@@ -337,7 +337,15 @@ def dict_of_CGs_2_hdf5(f, idict, compress=False,exclude=None, stride=1):
         _np.testing.assert_array_equal(_np.hstack(ref_t),_np.hstack(f["ref_t"]))
     else:
         if compress:
-            f.create_dataset(name="ref_t",data=ref_t)
+            for ii, itraj in enumerate(ref_t):
+                key = "ref_t_%u"%ii
+                if key not in f.keys():
+                    f.create_dataset(name=key,data=itraj)
+                else:
+                    # we could assert with almost_equal but these should actually be EXACTLY the same
+                    _np.testing.assert_array_equal(itraj, f[key],
+                                                   err_msg="You cannot save ContactGroups with differing time-arrays"
+                                                           "in the same hdf5, t")
 
 def common_time_array_of_CG_dicts(CG_dict):
     ref_t = None
