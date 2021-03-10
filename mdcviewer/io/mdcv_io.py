@@ -81,7 +81,13 @@ def hd5_2_dict_of_CGdicts(obj, restrict_to_residxs=None, decompress_here=True):
     output_dict = {}
     if "compress" in h5py_fileobject.keys() and h5py_fileobject["compress"][()]:
         needs_decompression=True
-        ref_t = h5py_fileobject["ref_t"][()]
+        try:
+            ref_t = h5py_fileobject["ref_t"][()]
+            #TODO this is while we adapt the old hdf5 files
+        except:
+            ref_t = []
+            for key in sorted([key for key in h5py_fileobject.keys() if key.startswith("ref_t")]):
+                ref_t.append(h5py_fileobject[key][()])
     for key, CGdict in h5py_fileobject.items():
         if key.isdigit() and valid_res(int(key)):
 

@@ -151,9 +151,10 @@ def residue_selection(top, fragments=None, initial_value="R131,GDP*,L393-L394") 
             try:
                 b = io.StringIO()
                 with redirect_stdout(b):
-                    residue_idxs["res"] = _rangeexpand_residues2residxs(residue_input.value.replace(" ","").strip(","),
-                                                                                      fragments,
-                                                                                      top )
+                    residue_idxs["res"] = _rangeexpand_residues2residxs(residue_input.value.replace(" ", "").strip(","),
+                                                                        fragments,
+                                                                        top,
+                                                                        just_inform=True)
                 b.close()
                 istr = ", ".join([str(top.residue(rr)) for rr in residue_idxs["res"]])
             except ValueError as e:
@@ -635,14 +636,9 @@ def run_Hbox(CG_type)-> runbox:
         collap_button)
 
 
-
-_center_colors = {'A': '#7d4dfbff',
-                  'B': '#ff58ffff',
-                  'C': '#8cffffff'}
-
 def color_pickers(centers_colors=None):
     if centers_colors is None:
-        centers_colors = _center_colors
+        centers_colors = plots._center_colors
     cps = []
     width = "%s%%"%_np.floor(100/len(centers_colors)*.90)
     for key, value in centers_colors.items():
@@ -838,7 +834,7 @@ def prepare_run_function_neighborhoods(indict, prog, output_acc_nt, CGs, per_fig
                 else:
                     with output_acc_nt.Errors:
                         output_acc_nt.Errors.clear_output(wait="True")
-                        print("%s was found in the topology but not in the indict" % top.residue(rr))
+                        print("%s was found in the topology but not in the data for %s" % (top.residue(rr),key))
             if len(CGs[rr]) > 0:
 
                 img_wdg = plots.indv_plot(argmap, CGs[rr])

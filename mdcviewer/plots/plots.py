@@ -2,6 +2,7 @@ import io
 from contextlib import redirect_stdout
 import numpy as _np
 import matplotlib.pyplot as _plt
+from matplotlib import colors as _mplcolors
 from mdciao.utils.residue_and_atom import shorten_AA as _shortenAA
 from mdciao.plots import compare_groups_of_contacts as _compare_groups_of_contacts
 import ipywidgets
@@ -141,4 +142,10 @@ def argmap2kwargs_compare_groups_of_contacts(argmap=None):
 
 _center_colors = {'A': '#7d4dfbff',
                   'B': '#ff58ffff',
-                  'C': '#8cffffff'}
+                  'C': '#8cffffff',
+                  "3SN6": _mplcolors.to_hex("brown"),
+                  "spawn_1":"#000000",
+                  "spawn_2":"#808080",
+                  "spawn_3":"#aaaaaa",
+                  "spawn_4":"#bfbfbf"
+                  }
