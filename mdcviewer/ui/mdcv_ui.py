@@ -656,6 +656,8 @@ def screen_neighborhoods(indict, top, individual_controls=False,
                          start=False,
                          **kwargs):
 
+    if kwargs.get("initial_value") is None:
+        start=False
     residue_selection_box_nc, res_idxs = residue_selection(top,**kwargs)
 
     residue_selection_acc = ipywidgets.Accordion([residue_selection_box_nc.itself],

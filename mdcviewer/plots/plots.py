@@ -143,6 +143,8 @@ def argmap2kwargs_compare_groups_of_contacts(argmap=None):
 _center_colors = {'A': '#7d4dfbff',
                   'B': '#ff58ffff',
                   'C': '#8cffffff',
+                  "4": _mplcolors.to_hex("gray"),
+                  "5": _mplcolors.to_hex("lime"),
                   "3SN6": _mplcolors.to_hex("brown"),
                   "spawn_1":"#000000",
                   "spawn_2":"#808080",

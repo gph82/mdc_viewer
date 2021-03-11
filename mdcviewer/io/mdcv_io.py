@@ -307,7 +307,9 @@ def dict_of_CGs_2_hdf5(f, idict, compress=False,exclude=None, stride=1):
         if ref_t is not None:
             ref_t = [t[::stride] for t in ref_t]
             exclude=["time_traces.time_trajs"]
-
+    # https://stackoverflow.com/questions/55282564/storing-a-list-of-strings-to-a-hdf5-dataset-from-python-using-vl-format
+    # https://docs.h5py.org/en/latest/strings.html
+    dt = h5py.string_dtype(encoding='utf-8')
     for key, cg in idict.items():
         try:
             g = f.create_group(str(key))
@@ -327,7 +329,11 @@ def dict_of_CGs_2_hdf5(f, idict, compress=False,exclude=None, stride=1):
                         val2 = [t for t in [" ".join([str(ff) for ff in _np.round(_np.array(tt)*1000).astype(_np.int32)]) for tt in val2]]
                     if compress and key2 =="time_traces.atom_pair_trajs":
                         val2 = [",".join(["%u %u"%tuple(pair) for pair in tt]) for tt in val2]
-                    h.create_dataset(key2, data=val2)
+                    #print(key2,type(key2), val2, type(val2))
+                    try:
+                        h.create_dataset(key2, data=val2)
+                    except TypeError:
+                        h.create_dataset(key2, data=_np.array(val2,dtype=dt))
             for key3 in ["interface_residxs","neighbors_excluded"]:
                 g.create_dataset(key3, data=iarch[key3])
             g.create_dataset("name",data=str("name"))
